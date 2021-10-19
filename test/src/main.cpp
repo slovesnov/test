@@ -1,126 +1,89 @@
-//#include <cstdio>
-#include <cstring>
 #include <thread>
-#include <atomic >
+#include <atomic>
+#include <iostream>
 
 #include "aslov.h"
 
-//#include <filesystem>
-//using namespace std::filesystem;
+/* 0 - [0..upper) up from 0 to upper-1
+ * 1 - [0..max] up from 0 to max
+ * 2 - [0..upper) down from upper-1 to 0
+ * 3 - [0..max] down from max to 0
+ */
+#define OPTION 3
+const bool test=0;//one thread show all info
+
+const int VALUE=3*1000*1000;
+
+#if (OPTION&1)==1
+const int max = VALUE;
+#else
+const int upper=VALUE+1;
+#endif
 
 std::atomic_int atom;
-//int max=20;
-std::vector<int> v;
+std::vector<std::pair<int,uint64_t>> v;
 
-void f(int n){
-	int i,j=0,k;
-	while((i=atom--) >=0){
+//count sum of numbers
+void f(int t) {
+	int i, j = 0;
+	uint64_t k=0;
+#if OPTION==0
+	auto _upper=upper;
+	while ((i = atom++) < _upper ) {
+#elif OPTION==1
+	auto _max=max;
+	while ((i = atom++) <= _max ) {
+#elif OPTION==2
+	while ((i = --atom) >= 0) {
+#else
+	while ((i = atom--) >= 0) {
+#endif
 		j++;
-
-		double v=4.3;
-		for(k=0;k<10000;k++){
-			v*=k;
+		k+=i;
+		if(test){
+			printzn("thread",t," n=",i)
 		}
 	}
-	v[n]=j;
-	printzn("t",n," j=",intToString(j))
-
-
-//	while((i=atom++)<max){
-//		printzn("t",n," i=",i)
-//	}
+	v[t] = {j,k};
 }
+
+#define TS(a) toString(a,',')
 
 int main (int argc, char** argv){
 //	aslovInit(argv);
-
-/*
-
-	int a,r;
-
-	a=10;
-	r=(a--);//10
-	printl(r)
-
-	a=10;
-	r=--a;//9
-	printl(r)
-
-	a=10;
-	r=a-=1;//10
-	printl(r)
-*/
-
-	atom=600000-1;//max
-	int i;
-	int cores=getNumberOfCores();
-	printl(cores)
-
+	int i,t;
+	uint64_t sum,u;
 	std::vector<std::thread> vt;
+	const int cores = test ? 1 : getNumberOfCores();
 
-	for (i=0; i<cores; ++i){
-	    vt.push_back(std::thread(f,i));
-	    v.push_back(0);
+#if OPTION<2
+	atom=0;
+#elif (OPTION&1)==1
+	atom=max;
+#else
+	atom=upper;
+#endif
+
+	v.resize(cores);
+	for (i = 0; i < cores; ++i) {
+		vt.push_back(std::thread(f, i));
 	}
 
 	for (auto& a : vt){
 		a.join();
 	}
 
-	i=0;
+	t=0;
+	sum=0;
 	for (auto& a : v){
-		i+=a;
+		printzn("thread", t, ", numbers proceed ", TS(a.first), ", sum ",TS(a.second))
+		sum+=a.second;
+		t++;
 	}
-	printl(intToString(i))
 
-
-
-/*
-	int x=2,y;
-
-	x=2;
-	y=x++;
-	printl(x,y)
-
-	x=2;
-	y=x+=1;
-	printl(x,y)
-*/
-
-
-/*
-	printsi("@@","ab",12,'*')
-	printai("ab",12,'*')
-	printzi("ab",12,'*')
-*/
-
-//	std::string s=fileGetContent("c:/downloads/1/a.txt");
-//	printl(s.length());
-
-
+	u=VALUE;
+	u*=VALUE+1;
+	u/=2;
+	printzn("total=",TS(sum)," sum(formula)=",TS(u)," ", u==sum ?"ok":"error")
 }
-
-/*
-	std::string root="c:/Users/user/git/bridge/bridge/src";
-	VString v;
-	std::string s;
-	int c=0;
-
-	for (auto& p : recursive_directory_iterator(root)) {
-		if (!is_directory(p)) {
-			auto f=p.path().string();
-			auto name=getFileInfo(f,FILEINFO::NAME);
-			s=fileGetContent(f);
-			auto vs=split(s,"\n");
-			for(auto& a:vs){
-				if(a.find("virtual")!=std::string::npos && a.find("virtual ~")==std::string::npos){
-					g_print("%-60s %s\n",trim(a).c_str(),name.c_str());
-					c++;
-				}
-			}
-		}
-	}
-
-	printan(c);
-*/
 
