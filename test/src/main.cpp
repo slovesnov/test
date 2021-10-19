@@ -8,24 +8,6 @@
 //#include <filesystem>
 //using namespace std::filesystem;
 
-#include <exception>
-#include <string>
-
-class Exception: std::exception { //this class is created for g++ compiler
-	std::string m_message;
-public:
-	Exception(const char *message):std::exception() {
-		m_message = message;
-	}
-
-	const char* what() const throw () {
-		return m_message.c_str();
-	}
-
-	~Exception() throw () {
-	}
-};
-
 std::atomic_int atom;
 //int max=20;
 std::vector<int> v;
