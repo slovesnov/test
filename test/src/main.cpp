@@ -9,15 +9,19 @@
  * 2 - [0..upper) down from upper-1 to 0
  * 3 - [0..max] down from max to 0
  */
-#define OPTION 3
-const bool test=0;//one thread show all info
+#define OPTION 0
 
+const bool test=0;//one thread show all info
 const int VALUE=3*1000*1000;
 
-#if (OPTION&1)==1
-const int max = VALUE;
+#if OPTION==0
+std::atomic_int upper;
+#elif OPTION==1
+std::atomic_int max;
+#elif OPTION==2
+int upper;
 #else
-const int upper=VALUE+1;
+int max;
 #endif
 
 std::atomic_int atom;
@@ -28,10 +32,10 @@ void f(int t) {
 	int i, j = 0;
 	uint64_t k=0;
 #if OPTION==0
-	auto _upper=upper;
+	int _upper=upper;//auto is error
 	while ((i = atom++) < _upper ) {
 #elif OPTION==1
-	auto _max=max;
+	int _max=max;//auto is error
 	while ((i = atom++) <= _max ) {
 #elif OPTION==2
 	while ((i = --atom) >= 0) {
@@ -55,6 +59,12 @@ int main (int argc, char** argv){
 	uint64_t sum,u;
 	std::vector<std::thread> vt;
 	const int cores = test ? 1 : getNumberOfCores();
+
+#if (OPTION&1)==1
+	max=VALUE;
+#else
+	upper=VALUE+1;
+#endif
 
 #if OPTION<2
 	atom=0;
