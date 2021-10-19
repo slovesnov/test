@@ -9,7 +9,7 @@
  * 2 - [0..upper) down from upper-1 to 0
  * 3 - [0..max] down from max to 0
  */
-#define OPTION 0
+#define OPTION 3
 
 const bool test=0;//one thread show all info
 const int VALUE=3*1000*1000;
@@ -68,10 +68,10 @@ int main (int argc, char** argv){
 
 #if OPTION<2
 	atom=0;
-#elif (OPTION&1)==1
-	atom=max;
-#else
+#elif OPTION==2
 	atom=upper;
+#else
+	atom=max;
 #endif
 
 	v.resize(cores);
