@@ -1,99 +1,48 @@
-#include <thread>
-#include <atomic>
+#include <cstdio>
+#include <cstddef>
 #include <iostream>
 
-#include "aslov.h"
+#define CONCATENATE(arg1, arg2)   arg1##arg2
 
-/* 0 - [0..upper) up from 0 to upper-1
- * 1 - [0..max] up from 0 to max
- * 2 - [0..upper) down from upper-1 to 0
- * 3 - [0..max] down from max to 0
- */
-#define OPTION 3
+#define FOR_EACH_1(what, x, ...) what(x)
+#define FOR_EACH_2(what, x, ...)\
+  what(x);\
+  FOR_EACH_1(what,  __VA_ARGS__);
+#define FOR_EACH_3(what, x, ...)\
+  what(x);\
+  FOR_EACH_2(what, __VA_ARGS__);
+#define FOR_EACH_4(what, x, ...)\
+  what(x);\
+  FOR_EACH_3(what,  __VA_ARGS__);
+#define FOR_EACH_5(what, x, ...)\
+  what(x);\
+ FOR_EACH_4(what,  __VA_ARGS__);
+#define FOR_EACH_6(what, x, ...)\
+  what(x);\
+  FOR_EACH_5(what,  __VA_ARGS__);
+#define FOR_EACH_7(what, x, ...)\
+  what(x);\
+  FOR_EACH_6(what,  __VA_ARGS__);
+#define FOR_EACH_8(what, x, ...)\
+  what(x);\
+  FOR_EACH_7(what,  __VA_ARGS__);
 
-const bool test=0;//one thread show all info
-const int VALUE=3*1000*1000;
+#define FOR_EACH_NARG(...) FOR_EACH_NARG_(__VA_ARGS__, FOR_EACH_RSEQ_N())
+#define FOR_EACH_NARG_(...) FOR_EACH_ARG_N(__VA_ARGS__)
+#define FOR_EACH_ARG_N(_1, _2, _3, _4, _5, _6, _7, _8, N, ...) N
+#define FOR_EACH_RSEQ_N() 8, 7, 6, 5, 4, 3, 2, 1, 0
 
-#if OPTION==0
-std::atomic_int upper;
-#elif OPTION==1
-std::atomic_int max;
-#elif OPTION==2
-int upper;
-#else
-int max;
-#endif
+#define FOR_EACH_(N, what, x, ...) CONCATENATE(FOR_EACH_, N)(what, x, __VA_ARGS__)
+#define FOR_EACH(what, x, ...) FOR_EACH_(FOR_EACH_NARG(x, __VA_ARGS__), what, x, __VA_ARGS__)
 
-std::atomic_int atom;
-std::vector<std::pair<int,uint64_t>> v;
+#define PRN_STRUCT_OFFSETS(a) std::cout<<#a<<" = "<<a<<"\n";
 
-//count sum of numbers
-void f(int t) {
-	int i, j = 0;
-	uint64_t k=0;
-#if OPTION==0
-	int _upper=upper;//auto is error
-	while ((i = atom++) < _upper ) {
-#elif OPTION==1
-	int _max=max;//auto is error
-	while ((i = atom++) <= _max ) {
-#elif OPTION==2
-	while ((i = --atom) >= 0) {
-#else
-	while ((i = atom--) >= 0) {
-#endif
-		j++;
-		k+=i;
-		if(test){
-			printzn("thread",t," n=",i)
-		}
-	}
-	v[t] = {j,k};
+int main(int argc, char *argv[]) {
+	int a = 3;
+	std::string b="abc";
+	char c='#';
+	FOR_EACH(PRN_STRUCT_OFFSETS, a, b, c);
+	printf("\n");
+
+	return 0;
 }
-
-#define TS(a) toString(a,',')
-
-int main (int argc, char** argv){
-//	aslovInit(argv);
-	int i,t;
-	uint64_t sum,u;
-	std::vector<std::thread> vt;
-	const int cores = test ? 1 : getNumberOfCores();
-
-#if (OPTION&1)==1
-	max=VALUE;
-#else
-	upper=VALUE+1;
-#endif
-
-#if OPTION<2
-	atom=0;
-#elif OPTION==2
-	atom=upper;
-#else
-	atom=max;
-#endif
-
-	v.resize(cores);
-	for (i = 0; i < cores; ++i) {
-		vt.push_back(std::thread(f, i));
-	}
-
-	for (auto& a : vt){
-		a.join();
-	}
-
-	t=0;
-	sum=0;
-	for (auto& a : v){
-		printzn("thread", t, ", numbers proceed ", TS(a.first), ", sum ",TS(a.second))
-		sum+=a.second;
-		t++;
-	}
-
-	u=VALUE;
-	u*=VALUE+1;
-	u/=2;
-	printzn("total=",TS(sum)," sum(formula)=",TS(u)," ", u==sum ?"ok":"error")
-}
-
