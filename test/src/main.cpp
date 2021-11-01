@@ -38,19 +38,7 @@ struct S{
 };
 using VS=std::vector<S>;
 
-#define toString1 toString
-
 int main(int argc, char *argv[]) {
-	printl(toString1(123456,' ',3));
-	printl(toString1(12345,' ',3));
-	printl(toString1(1234,' ',3));
-	printl(toString1(123,' ',3));
-	printl(toString1(12,' ',3));
-//	printl(toString1(123456,' ',1));
-//	printl(toString1(123456));
-}
-
-int main_(int argc, char *argv[]) {
 
 	std::string root[]={"c:/slovesno/bridgeBad","c:/Users/user/git/bridge/bridge/src"};
 	std::string s,q,c;
@@ -107,6 +95,7 @@ int main_(int argc, char *argv[]) {
 	//12-Oct-2021 19:01:28 73 1634054488
 	time_t AT=1634054488;
 	j=1;
+	VString vn;
 	std::map<time_t,int> map;
 	for(auto a:v){
 		if(a.content!=a.content1 || a.mtime1!=AT){
@@ -121,13 +110,21 @@ int main_(int argc, char *argv[]) {
 		}
 		s=format("%3d",j);
 		printan(s,a.content==a.content1,a.string(i));
+		vn.push_back(a.p);
 		j++;
+
 	}
 
 	for (auto& [time, n]: map) {
 		printan(ms(time),n,time);
 	}
 
+	i=0;
+	for(auto a:vn){
+		printf("copy \"%s/%s\" \"%s/%s\"\n",root[0].c_str(),a.c_str(),root[1].c_str(),a.c_str());
+		i++;
+	}
+	printl(i)
 
 /*
 	std::string s="c:\\Users\\user\\git\\stopwatch\\stopwatch\\Release\\stopwatch.exe";
