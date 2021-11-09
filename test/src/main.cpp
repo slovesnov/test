@@ -1,146 +1,74 @@
 #include "aslov.h"
 
-#include <sys/stat.h>
-#include <map>
-#include <filesystem>
-using namespace std::filesystem;
-
 #include <iostream>
-
-std::string ms(time_t m){
-	char b[80];
-	strftime(b, 80, "%d-%b-%Y %H:%M:%S", std::localtime(&m));
-	return b;
-}
-
-#define SORT 1
-
-struct S{
-	std::string p;
-	time_t mtime;//old
-	std::string content;
-	time_t mtime1;//new
-	std::string content1;
-
-
-	bool operator<(S& s){
-#if SORT==1
-		return mtime1<s.mtime1;
-#else
-		return mtime<s.mtime;
-#endif
-	}
-
-
-	std::string string(int i){
-		return format("%*s\t",i,p.c_str())+ms(mtime)+"\t"+ms(mtime1);
-	}
-};
-using VS=std::vector<S>;
 
 int main(int argc, char *argv[]) {
 
-	std::string root[]={"c:/slovesno/bridgeBad","c:/Users/user/git/bridge/bridge/src"};
-	std::string s,q,c;
-	VS v;
-	int i,j;
-
-//	auto s="c:/Users/user/git/"+name+"/"+name+"/src";
-
-	i=0;
-	for(auto r:root){
-		for (auto& p : recursive_directory_iterator(r)) {
-			if (is_directory(p)) {
-				continue;
-			}
-			auto s=p.path().string();
-			c=fileGetContent(s);
-			assert(s[r.length()]=='\\');
-
-			struct stat result;
-			stat(s.c_str(), &result);
-			auto mod_time = result.st_mtime;
-
-			auto sh=s.substr(r.length()+1);
-			if(i==0){
-				v.push_back( { sh, mod_time, c });
-			}
-			else{
-				auto it = std::find_if(v.begin(), v.end(), [&sh](const S &x) {
-					return x.p == sh;
-				});
-
-				//it==v.end()
-				//not found helper\PreferansScore.cpp 10/Oct/2021 01:04:58
-				//not found helper\PreferansScore.h 10/Oct/2021 15:51:05
-				if(it!=v.end()){
-					it->mtime1=mod_time;
-					it->content1=c;
-
-				}
-
-			}
-		}
-		i++;
-	}
-
-
-	std::sort(v.begin(),v.end());
-
-	i=0;
-	for(auto a:v){
-		i=std::max(i,int(a.p.length()));
-	}
-
-	//12-Oct-2021 19:01:28 73 1634054488
-	time_t AT=1634054488;
-	j=1;
-	VString vn;
-	std::map<time_t,int> map;
-	for(auto a:v){
-		if(a.content!=a.content1 || a.mtime1!=AT){
-			continue;
-		}
-		auto it=map.find(a.mtime1);
-		if(it==map.end()){
-			map[a.mtime1]=1;
-		}
-		else{
-			it->second++;
-		}
-		s=format("%3d",j);
-		printan(s,a.content==a.content1,a.string(i));
-		vn.push_back(a.p);
-		j++;
-
-	}
-
-	for (auto& [time, n]: map) {
-		printan(ms(time),n,time);
-	}
-
-	i=0;
-	for(auto a:vn){
-		printf("copy \"%s/%s\" \"%s/%s\"\n",root[0].c_str(),a.c_str(),root[1].c_str(),a.c_str());
-		i++;
-	}
-	printl(i)
+	int ar[]={80407
+			,977
+			,23345
+			,49263
+			,22306
+			,8207
+			,251
+//			,0
+//			,0
+//			,0
+//			,0
+	};
 
 /*
-	std::string s="c:\\Users\\user\\git\\stopwatch\\stopwatch\\Release\\stopwatch.exe";
-
-	struct stat result;
-	stat(s.c_str(), &result);
-	auto m = result.st_mtime;
-
-	char b[80];
-	strftime(b, 80, "%m/%d/%Y %H:%M:%S", std::localtime(&m));
-	printzi('[',b,']')
-
-	strftime(b, 80, "%d %b %Y %H:%M:%S", std::localtime(&m));
-	printzi('[',b,']')
+	<table class="single"><tbody>
+	<tr><th>число взяток</th><th>раскладов</th><th>вероятность</th></tr>
+	<tr><td>t=0</td><td>80 407</td><td>p<sub>0</sub>=43.52%</td><tr>
+	<tr><td>t=1</td><td>977</td><td>p<sub>1</sub>=0.53%</td><tr>
+	<tr><td>t=2</td><td>23 345</td><td>p<sub>2</sub>=12.64%</td><tr>
+	<tr><td>t=3</td><td>49 263</td><td>p<sub>3</sub>=26.66%</td><tr>
+	<tr><td>t=4</td><td>22 306</td><td>p<sub>4</sub>=12.07%</td><tr>
+	<tr><td>t=5</td><td>8 207</td><td>p<sub>5</sub>=4.44%</td><tr>
+	<tr><td>t=6</td><td>251</td><td>p<sub>6</sub>=0.14%</td><tr>
+	<tr><td>t=7</td><td>0</td><td>p<sub>7</sub>=0%</td><tr>
+	<tr><td>t=8</td><td>0</td><td>p<sub>8</sub>=0%</td><tr>
+	<tr><td>t=9</td><td>0</td><td>p<sub>9</sub>=0%</td><tr>
+	<tr><td>t=10</td><td>0</td><td>p<sub>10</sub>=0%</td><tr>
+	<tr><th>всего</th><td>184 756</td><td>100%</td><tr>
+	</tbody></table>
 */
 
-	return 0;
+	std::string s;
+	int i,t,p=3;
+	double v,q[]={0,0};
 
+	s+="<table class=\"single tc\"><tbody>\n";
+	s+=format("<tr><th colspan=\"%d\" align=\"center\">%s игрока</th></tr>\n",p+1,p==3?"три":"четыре");
+	s+="<tr>";
+	s+="<th></th>";
+	s+="<th>мизерист</th>";
+	for(i=1;i<p;i++){
+		s+=format("<th>ловец%d</th>",i);
+	}
+	s+="</tr>\n";
+	for(t=0;t<7;t++){
+		s+=format("<tr><td>t=%d</td>",t);
+		if(t==0){
+			v=100.*(p-1)/p;
+		}
+		else{
+			v=-100.*t*(p-1)/p;
+		}
+		q[0]+=ar[t]*v/184756;
+		for(i=0;i<p;i++){
+			s+=format("<td>%c<sub>%d</sub> = %.2lf</td>",i==0?'P':'D',t,v);
+			if(i==0){
+				v=-v/(p-1);
+				q[1]+=ar[t]*v/184756;
+			}
+		}
+		s+="</tr>\n";
+	}
+	s+="</tbody></table>\n";
+
+	printzn(s);
+
+	printa(q[0],q[1])
 }
