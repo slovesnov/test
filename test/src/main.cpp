@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
 		}
 		q[0]+=ar[t]*v/184756;
 		for(i=0;i<p;i++){
-			s+=format("<td>%c<sub>%d</sub> = %.*lf</td>",i==0?'P':'D',t,p==3?2:0,v);
+			s+=format("<td>S<sub>%d</sub>(%d) = %.*lf</td>",i,t,p==3?2:0,v);
 			if(i==0){
 				v=-v/(p-1);
 				q[1]+=ar[t]*v/184756;
