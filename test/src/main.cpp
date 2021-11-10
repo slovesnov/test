@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
 */
 
 	std::string s;
-	int i,t,p=4;
+	int i,t,p=3;
 	double v,q[]={0,0};
 
 	s+="<table class=\"single tc\"><tbody>\n";
@@ -48,6 +48,14 @@ int main(int argc, char *argv[]) {
 		s+=format("<th>ловец%d</th>",i);
 	}
 	s+="</tr>\n";
+
+	s+="<tr>";
+	s+="<th></th>";
+	for(i=0;i<p;i++){
+		s+=format("<th>S<sub>%d</sub>(t)</th>",i,p==3?2:0);
+	}
+	s+="</tr>\n";
+
 	for(t=0;t<7;t++){
 		s+=format("<tr><td>t=%d</td>",t);
 		if(t==0){
@@ -58,7 +66,7 @@ int main(int argc, char *argv[]) {
 		}
 		q[0]+=ar[t]*v/184756;
 		for(i=0;i<p;i++){
-			s+=format("<td>S<sub>%d</sub>(%d) = %.*lf</td>",i,t,p==3?2:0,v);
+			s+=format("<td>%.*lf</td>",p==3?2:0,v);
 			if(i==0){
 				v=-v/(p-1);
 				q[1]+=ar[t]*v/184756;
