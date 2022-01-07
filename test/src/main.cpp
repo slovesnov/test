@@ -3,10 +3,14 @@
 #include <set>
 #include <cstring>
 #include <iostream>
-//#include <numeric>
+#include <algorithm>
+
+struct SI{
+	std::string name;
+	int count;
+};
 
 int main() {
-	//http://duma.gov.ru/duma/deputies/8/
 	const std::string BEGIN="<strong>";
 	const std::string END="</span></span>";
 	const int N=8;
@@ -15,8 +19,11 @@ int main() {
 	std::size_t p,p1,p2,p3;
 	int i,j;
 	std::set<std::string> names[N];
+	std::vector<SI> v;
+	std::vector<SI>::iterator it;
 
 	for(j=0;j<N;j++){
+		//http://duma.gov.ru/duma/deputies/8/
 		std::ifstream f("c:\\downloads\\gd"+std::to_string(j+1)+".html");
 		assert(f.is_open());
 		std::stringstream buffer;//declare here
@@ -45,21 +52,35 @@ int main() {
 			set.insert(s2);
 			//printl(utf8ToLocale(s2),"@");
 		}
+		for(auto&x:set){
+			it=std::find_if(v.begin(), v.end(), [&x](auto&a){return a.name==x;});
+			if( it == v.end()) {
+				v.push_back({x,1});
+			}
+			else{
+				it->count++;
+			}
+		}
 		printzn("gd",j+1," different",set.size()," all",i," size",toString(s.length(),','));
 	}
 
-	i=0;
-	for(auto v:names[0]){
-		for(j=1;j<N;j++){
-			std::set<std::string>& set=names[j];
-			if(set.find(v)==set.end()){
-				break;
-			}
-		}
-		if(j==N){
-			printl(++i,utf8ToLocale(v));
+	std::sort(v.begin(),v.end(),[](auto&a,auto&b){
+		return a.count>b.count;
+	});
+
+	i = 1;
+	for (auto &a : v) {
+		if (a.count == N) {
+			printan(i, utf8ToLocale(a.name));
+			i++;
 		}
 	}
+
+	for(i=8;i>0;i--){
+		j=std::count_if(v.begin(),v.end(),[&i](auto&a){return a.count==i;});
+		printan(j,i)
+	}
+	printan(v.size())
 /*
 	gd1 different462 all463 size787,055
 	gd2 different481 all482 size813,193
@@ -69,12 +90,11 @@ int main() {
 	gd6 different521 all523 size928,283
 	gd7 different491 all491 size864,214
 	gd8 different450 all450 size929,707
-	1 Грешневиков Анатолий Николаевич        main.cpp:60 main()
-	2 Жириновский Владимир Вольфович         main.cpp:60 main()
-	3 Зюганов Геннадий Андреевич             main.cpp:60 main()
-	4 Морозов Олег Викторович                main.cpp:60 main()
-	5 Харитонов Николай Михайлович           main.cpp:60 main()
+	1 Жириновский Владимир Вольфович
+	2 Харитонов Николай Михайлович
+	3 Морозов Олег Викторович
+	4 Грешневиков Анатолий Николаевич
+	5 Зюганов Геннадий Андреевич
 */
-
 	//printl(s.length(),i);
 }
