@@ -1,124 +1,100 @@
 #include "aslov.h"
 #include <cstdio>
-#include <set>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
-#include <algorithm>
+#include <inttypes.h>
 
-struct SI{
-	std::string name;
-	int count;
+#include "BigUnsigned.h"
+//typedef __uint128_t maxuint;
+
+uint64_t getBinomialCoefficient(int k,int n){
+	uint64_t r = 1;
+	int i;
+	/* for big n,k
+	 * C(n,k)=n*C(n-1,k-1)/k
+	 * C(n,k)=n*C(n-1,k-1)/k=(n/k)*(n-1/k-1)...(n-k+1/1)C(n-k,0); C(n-k,0)=1
+	 */
+	for (i = 1; i <= k; i++) {
+		r *= n - k + i;
+		r /= i;
+	}
+	return r;
+}
+
+typedef std::vector<int> VInt;
+typedef std::vector<VInt> VVInt;
+
+enum class EndgameType{
+	ALL,NT,TRUMP,MISERE
 };
 
+VVInt suitLengthVector(const int n, bool bridge,EndgameType option) {
+	//l[] - number of cards in suit
+	int l[4];
+	const int nn = (bridge ? 4 : 3) * n;
+	const int up = std::min(bridge ? 13 : 8, nn);
+	VVInt v;
+	VInt vi;
+	for (l[0] = 0; l[0] <= up; l[0]++) {
+		for (l[1] = 0; l[1] <= up; l[1]++) {
+			for (l[2] = 0; l[2] <= up; l[2]++) {
+				l[3] = nn - l[0] - l[1] - l[2];
+				if (l[3] >= 0 && l[3]<=up) {
+					if (option == EndgameType::ALL
+							|| ((option == EndgameType::NT || option == EndgameType::MISERE ) && l[0] <= l[1] && l[1] <= l[2]
+									&& l[2] <= l[3])
+							|| (option == EndgameType::TRUMP && l[1] <= l[2]
+									&& l[2] <= l[3])) {
+						vi.assign(l, l+4);
+						v.push_back(vi);
+					}
+				}
+			}
+		}
+	}
+	return v;
+}
+
 int main() {
-	const std::string BEGIN="<strong>";
-	const std::string END="</span></span>";
-	const int N=8;
-	std::string s,s1,s2;
-	//std::stringstream buffer;
-	std::size_t p,p1,p2,p3;
-	int i,j,k,pk;
-	std::set<std::string> names[N];
-	std::vector<SI> v;
-	std::vector<SI>::iterator it;
+	printl(toString(12'566'400,',',3));
 
-	for(j=0;j<N;j++){
-		//http://duma.gov.ru/duma/deputies/8/
-		std::ifstream f("c:\\downloads\\gd"+std::to_string(j+1)+".html");
-		assert(f.is_open());
-		std::stringstream buffer;//declare here
-		//buffer.clear();
-		buffer << f.rdbuf();
-		s=buffer.str();
-		p=0;
-		i=0;
-		std::set<std::string>& set=names[j];
-		while ( (p=s.find(BEGIN,p))!=std::string::npos){
-			p+=BEGIN.length();
-			p1=s.find(END,p);
-			assert(p1!=std::string::npos);
-			i++;
-			s1=s.substr(p, p1-p);
-			p2=s1.find('<');
-			assert(p2!=std::string::npos);
-			p3=s1.find_last_of('>');
-			assert(p3!=std::string::npos);
-			p3++;
-			p+=p3;
-			s2=s1.substr(0, p2)+" "+s1.substr(p3);
-//			if(set.find(s2)!=set.end()){
-//				printl(utf8ToLocale(s2));
-//			}
-			set.insert(s2);
-			//printl(utf8ToLocale(s2),"@");
-		}
-		for(auto&x:set){
-			it=std::find_if(v.begin(), v.end(), [&x](auto&a){return a.name==x;});
-			if( it == v.end()) {
-				v.push_back({x,1});
-			}
-			else{
-				it->count++;
-			}
-		}
-		printzn("gd",j+1," different",set.size()," all",i," size",toString(s.length(),','));
-	}
+	const int digits=6;
+	int i,j,l;
+	uint64_t r;
+	BigUnsigned bi;
+	std::string s;
 
-	std::ofstream o("out.html");
-	o<<"<html><head><style>.c0{ background-color: Cornsilk; }.c1 { background-color: Azure; }\
-			table {\n\
-				border-top:1px solid black;\n\
-				border-left:1px solid black;\n\
-			    border-spacing: 0px;\n\
-			}\n\
-			table tr td, table tr th{\n\
-				border-right:1px solid black;\n\
-				border-bottom:1px solid black;\n\
-			}\n\
-			</style></head><body><table>\n";
-
-	std::sort(v.begin(),v.end(),[](auto&a,auto&b){
-		if(a.count==b.count){
-			return a.name < b.name;
-		}
-		else{
-			return a.count > b.count;
-		}
-	});
-
-	i = 1;
-	j=k=1;
-	pk=-1;
-	for (auto &a : v) {
-		if(a.count!=pk){
-			k=1;
-			pk=a.count;
-		}
-		o<<"<tr class='c"<<a.count%2<<"'><td>"<<j<<"<td>"<<k<<"<td>"<<a.name<<"<td>"<<a.count<<"\n";
-		j++;
-		k++;
-		if (a.count == N) {
-			printan(i, utf8ToLocale(a.name));
-			i++;
-		}
-	}
-	o<<"</table></body></html>";
-
-	for(i=8;i>0;i--){
-		j=std::count_if(v.begin(),v.end(),[&i](auto&a){return a.count==i;});
-		printan(j,i)
-	}
-	printan(v.size())
 /*
-	gd1 different462 all463 size787,055
-	gd2 different481 all482 size813,193
-	gd3 different465 all467 size809,463
-	gd4 different470 all471 size829,877
-	gd5 different481 all483 size876,668
-	gd6 different521 all523 size928,283
-	gd7 different491 all491 size864,214
-	gd8 different450 all450 size929,707
+	for(j=0;j<2;j++){
+		const bool bridge=j==0;
+		printl(bridge?"bridge":"preferans")
+		l=1;
+		while ((i = suitLengthVector(l, bridge, EndgameType::ALL).size())) {
+			prints(" & ",l, i,suitLengthVector(l, bridge, EndgameType::NT).size(),suitLengthVector(l, bridge, EndgameType::TRUMP).size())
+			printan("\\\\")
+			l++;
+		}
+	}
 */
-	//printl(s.length(),i);
+
+	for(j=0;j<2;j++){
+		const bool bridge=j==0;
+		printl(bridge?"bridge":"preferans")
+		for(l=1;l<=(bridge?13:10);l++){
+			i=(bridge?1:2)*suitLengthVector(l,bridge,EndgameType::NT).size()+suitLengthVector(l,bridge,EndgameType::TRUMP).size();
+			r=getBinomialCoefficient(l,3*l)*getBinomialCoefficient(l,2*l);
+			bi=r;
+			if(bridge){
+				r*=getBinomialCoefficient(l,4*l);
+				bi*=getBinomialCoefficient(l,4*l);
+			}
+			s=(bi*i).toString();
+			prints(" & ",l,toString(i*r,',',digits),(bi*i).toString(digits, ',')+format(" $\\approx%c.%c \\cdot 10^{%d}$",s[0],s[1],int(s.length()-1)))
+//			prints(" & ",l,std::to_string(i)+" $\\cdot$ "+toString(r,',',digits)+" = "+toString(i*r,',',digits)
+//					,std::to_string(i)+" $\\cdot$ "+bi.toString(digits, ',')+" = "+(bi*i).toString(digits, ','))
+			printan("\\\\")
+		}
+	}
 
 }
