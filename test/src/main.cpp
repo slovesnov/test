@@ -78,7 +78,7 @@ int main() {
 	}
 */
 
-	for(j=0;j<2;j++){
+	for(j=0;j<2 ;j++){
 		const bool bridge=j==0;
 		printl(bridge?"bridge":"preferans")
 		for(l=1;l<=(bridge?13:10);l++){
