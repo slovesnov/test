@@ -1,53 +1,86 @@
-#include "aslov.h"
-#include <cstdio>
-#include <numeric>//iota
-#include <cstring>
+//#include "aslov.h"
+#include <vector>
+#include <map>
+#include <algorithm>
+#include <fstream>
 #include <iostream>
-#include <cmath>
 
-#include "BigUnsigned.h"
-//typedef __uint128_t maxuint;
+#ifdef REMOTE
+#include <iconv.h>
+#include <cstring>
+#else
+//for files compare
+#include <sstream>
+#endif
 
-uint64_t getBinomialCoefficient(int k,int n){
-	uint64_t r = 1;
-	int i;
-	/* for big n,k
-	 * C(n,k)=n*C(n-1,k-1)/k
-	 * C(n,k)=n*C(n-1,k-1)/k=(n/k)*(n-1/k-1)...(n-k+1/1)C(n-k,0); C(n-k,0)=1
-	 */
-	for (i = 1; i <= k; i++) {
-		r *= n - k + i;
-		r /= i;
+const std::string invalidDifference = "$";
+std::vector<std::map<std::string, std::vector<std::string>>> eqmap;
+std::string sout;
+
+//subtract ordered strings
+std::string sub(std::string const &minuend, std::string const &subtrahend) {
+	if (minuend.length() < subtrahend.length()) {
+		return invalidDifference;
 	}
-	return r;
+	if (minuend.length() == subtrahend.length()) {
+		return minuend == subtrahend ? "" : invalidDifference;
+	}
+
+	std::string difference;
+	auto p1 = minuend.c_str();
+	auto p = subtrahend.c_str();
+	for (; *p1; p1++) {
+		if (*p1 == *p) {
+			p++;
+			if (!*p) {
+				return difference + (p1 + 1);
+			}
+		} else if (*p1 < *p) {
+			difference += *p1;
+		} else {
+			return invalidDifference;
+		}
+	}
+	return invalidDifference;
 }
 
-typedef std::vector<int> VInt;
-typedef std::vector<VInt> VVInt;
+std::string getOrderedString(std::string const &s) {
+	auto o = s;
+	std::sort(o.begin(), o.end());
+	return o;
+}
 
-enum class EndgameType{
-	ALL,NT,TRUMP
-};
+//get list of dictionary words from ordered string
+std::string getUserString(std::string const &s) {
+	auto &a = eqmap[s.length()].find(s)->second;
+	bool f = true;
+	std::string o;
+	for (auto &e : a) {
+		if (!f) {
+			o += ' ';
+		}
+		o += e;
+		f = false;
+	}
+	if (a.size() != 1) {
+		o = '{' + o + '}';
+	}
+	return o;
+}
 
-VVInt suitLengthVector(const int n, bool bridge,EndgameType option) {
-	//l[] - number of cards in suit
-	int l[4];
-	const int nn = (bridge ? 4 : 3) * n;
-	const int up = std::min(bridge ? 13 : 8, nn);
-	VVInt v;
-	VInt vi;
-	for (l[0] = 0; l[0] <= up; l[0]++) {
-		for (l[1] = 0; l[1] <= up; l[1]++) {
-			for (l[2] = 0; l[2] <= up; l[2]++) {
-				l[3] = nn - l[0] - l[1] - l[2];
-				if (l[3] >= 0 && l[3]<=up) {
-					if (option == EndgameType::ALL
-							|| (option == EndgameType::NT && l[0] <= l[1] && l[1] <= l[2]
-									&& l[2] <= l[3])
-							|| (option == EndgameType::TRUMP && l[1] <= l[2]
-									&& l[2] <= l[3])) {
-						vi.assign(l, l+4);
-						v.push_back(vi);
+//get list of dictionary words from ordered string
+std::vector<std::pair<std::string, std::string>> getAllPairs(
+		std::string const &s, std::string const &low = invalidDifference) {
+	std::vector<std::pair<std::string, std::string>> v;
+	for (size_t i = 1; i < s.size(); i++) {
+		for (auto &e : eqmap[i]) {
+			if (low == invalidDifference || low <= e.first) {
+				auto a = sub(s, e.first);
+				if (a != invalidDifference && e.first <= a) {
+					auto &m = eqmap[a.length()];
+					if (m.find(a) != m.end()) {
+						v.push_back(
+								{ getUserString(e.first), getUserString(a) });
 					}
 				}
 			}
@@ -56,135 +89,184 @@ VVInt suitLengthVector(const int n, bool bridge,EndgameType option) {
 	return v;
 }
 
-std::string binaryCodeString(int c, int miminumPrintBits = 0) {
-	assert(miminumPrintBits<=32);
-	const int f=64;
-	char b[128], h[50], *pb=b+f, *ph=h;
-	itoa(c, b+f, 2);
-	int i,l = strlen(b+f);
-	if (miminumPrintBits && (i=miminumPrintBits-l)>0 ) {
-		memset(b+f-i, '0', i);
-		pb-=i;
+//output all pairs to string
+void printAllPairs(std::vector<std::pair<std::string, std::string>> const &v,
+		bool p = 0) {
+	bool first = true;
+	if (p) {
+		sout += "[";
 	}
-	l = strlen(pb) & 1;
-	for (i = 0; *pb != 0; i++) {
-		if ((i & 1) == l && i != 0) {
-			*ph++ = '_';
+	for (auto &e : v) {
+		if (first) {
+			first = false;
+		} else {
+			sout += p ? ", " : "\n";
 		}
-		*ph++ = *pb++;
+		sout += e.first + " " + e.second;
 	}
-	*ph = 0;
-	return h;
+	if (p) {
+		sout += "]";
+	}
+	sout += "\n";
 }
 
-void rotate(int n,int bits,int a[3]){
-	int i,j,r;
-
-	int m_w[43];
-	i=0;
-	for(int& a:m_w){
-		a=i%4;
-		i++;
+#ifdef REMOTE
+std::string encode(const std::string &s, bool toUtf8) {
+	std::string r;
+	const char UTF8[] = "UTF-8";
+	const char CP1251[] = "cp1251";
+	iconv_t cd = toUtf8 ? iconv_open(UTF8, CP1251) : iconv_open(CP1251, UTF8);
+	if ((iconv_t) -1 == cd) {
+		printf("error %d", __LINE__);
+		perror("iconv_open");
+		return r;
 	}
 
-	assert(bits % 2 == 0);
-	for (j = 0; j < 3; j++) {
-		r = 0;
-		for (i = 0; i < bits / 2; i++) {
-			r |= m_w[((n>>(2*i)) & 3)+j+1] << (2 * i);
-		}
-		a[j] = r;
+	size_t inbytesleft = s.length();
+	char *in = new char[inbytesleft];
+	strncpy(in, s.c_str(), inbytesleft);
+	size_t outbytesleft = inbytesleft * 2 + 1;
+	char *out = new char[outbytesleft];
+	char *outbuf = out;
+	size_t ret = iconv(cd, &in, &inbytesleft, &outbuf, &outbytesleft);
+	if ((size_t) -1 == ret) {
+		printf("error %d", __LINE__);
+		perror("iconv");
+		return r;
 	}
+	*outbuf = 0;
+	r = out;
+	delete[] out;
+	iconv_close(cd);
+	return r;
 }
+#endif
 
+int main(int argc, char *argv[]) {
+	std::string s, s1, t, lng;
+	size_t i, j;
 
-int main() {
-
-//	int i,j;//,k,l;
-//	char byte;
-
-//	int a[]={0,2,5};
-//	for(i=0;i<3;i++){
-//		j=a[i];
-//		printl(binaryCodeString(j));
-//		printl(binaryCodeString(j,2));
-//		printl(binaryCodeString(j,5));
-//		printl(binaryCodeString(j,6));
-//	}
-
-/*
-	srand(time(NULL));
-	const int bits=12;
-	const int mask=(1<<bits)-1;
-
-	// 1<<k = 2^k 2^3=1000 2^3-1 7
-	clock_t begin=clock();
-	for(j=0;j<369600;j++){
-		i=(rand()&mask) | ((rand()&mask)<<bits);
-		rotate(i, 2*bits,a);
-	}
-	printl(timeElapse(begin));
-*/
-
-/*
-	int n,a[3];
-	VVInt v;
-	for(i=0;i<2;i++){
-	for(n=1;;n++){
-		bool bridge=i==0;
-		for(j=0;j<3;j++){
-			v=suitLengthVector( n, bridge,EndgameType(j));
-			if(v.empty()){
-				goto l144;
-			}
-			if(!j){
-				printf("\n<tr><td>%d",n);
-			}
-			a[j]=v.size();
-			printf("<td>%d</td>",a[j]);
+#ifdef REMOTE
+	printf("Content-type: text/html\n\n");
+	std::getline(std::cin, t);
+	const char *p = t.c_str() + 2; //t="s=word" so +2
+	s = "";
+	while (*p != 0) {
+		if (*p == '%') {
+			p++;
+			//can be "%7B1%2C which means "{1," so cann't use strtol directly
+			s1.assign(p, 2);
+			s += stoi(s1, nullptr, 16);
+			p += 2;
+		} else {
+			s += *p++;
 		}
-		printf("<td>%d",a[1]+(bridge?1:2)*a[2]);
 	}
-		l144:;
-		printf("\n");
+	//sout = "6";
+	s = encode(s, false);
+
+#else
+	clock_t begin = clock();
+	if (argc == 1) {
+		const int en = 0;
+		const std::string chars2[] = { "авекмнорстух", "abekmhopctyx" };
+		//const std::string chars2[] = { "москвамосква", "abekmhopctyx" };
+		s = chars2[en];
+	} else {
+		s = argv[1]; //s - cp1251
+		if (s.length() == 0) {
+			std::cout << "error empty string";
+			return 1;
+		}
 	}
-*/
+#endif
+	lng = isalpha(s[0]) ? "en" : "ru";
+	const size_t size = s.length();
+	eqmap.resize(size);
+	size_t sz[size];
 
-//	printl(binaryCodeString(i,24));
-//	for(auto b:a){
-//		printl(binaryCodeString(b,24));
-//	}
+	std::ifstream infile(
+#ifdef REMOTE
+			"../htdocs"
+#else
+			"C:/Users/user/git/words"
+#endif
+							"/words/words/" + lng + "/words.txt");
+	auto charset = getOrderedString(s);
 
- 	const int digits=6;
- 	const bool latex=0;
-	int i,j,l;
-	uint64_t r;
-	BigUnsigned bi;
-	std::string s,s1;
-
-	for(j=0;j<2 ;j++){
-		const bool bridge=j==0;
-		printl(bridge?"bridge":"preferans")
-		for(l=1;l<=(bridge?13:10);l++){
-			i=(bridge?1:2)*suitLengthVector(l,bridge,EndgameType::NT).size()+suitLengthVector(l,bridge,EndgameType::TRUMP).size();
-			r=getBinomialCoefficient(l,3*l)*getBinomialCoefficient(l,2*l);
-			bi=r;
-			if(bridge){
-				r*=getBinomialCoefficient(l,4*l);
-				bi*=getBinomialCoefficient(l,4*l);
-			}
-			s=(bi*i).toString();
-			if(latex){
-				prints(" & ",l,toString(i*r,',',digits),(bi*i).toString(digits, ',')+format(" $\\approx%c.%c \\cdot 10^{%d}$",s[0],s[1],int(s.length()-1)))
-				printan("\\\\")
-			}
-			else{
-				s1=formats("</td><td>",l, (bi*i).toString(digits, ',')+format(" &asymp; %c.%c&sdot;10<sup>%d</sup>",s[0],s[1],int(s.length()-1)));
-//				s1=formats("</td><td>",l,"\\("+(bi*i).toString(digits, ',')+format("\\approx%c.%c \\cdot 10^{%d}\\)",s[0],s[1],int(s.length()-1)));
-				printzn("<tr><td>",s1,"</td>")
+	while (std::getline(infile, s)) {
+		j = s.length();
+		if (j < size) {
+			s1 = getOrderedString(s);
+			auto &m = eqmap[j];
+			auto it = m.find(s1);
+			if (it == m.end()) {
+				t = sub(charset, s1);
+				if (t != invalidDifference) {
+					m.insert( { s1, { s } });
+				}
+			} else {
+				it->second.push_back(s);
 			}
 		}
 	}
 
+	sz[0] = j = 0;
+	s = "";
+	for (i = 1; i < size; i++) {
+		sz[i] = 0;
+		auto &m = eqmap[i];
+		if (!m.empty()) {
+			for (auto &a : m) {
+				sz[i] += a.second.size();
+				sz[0] += a.second.size();
+			}
+			j += m.size();
+			s += ' ' + std::to_string(i) + ':' + std::to_string(m.size()) + '('
+					+ std::to_string(sz[i]) + ')';
+		}
+	}
+#ifndef REMOTE
+	sout += "words:" + std::to_string(j) + '(' + std::to_string(sz[0]) + ')' + s
+			+ '\n';
+#endif
 
+	auto v = getAllPairs(charset);
+	if (v.empty()) {
+		sout += "no two items found\n";
+	} else {
+		printAllPairs(v);
+	}
+
+	sout += "----------------\n";
+	for (i = 1; i < size; i++) {
+		auto &m = eqmap[i];
+		for (auto &e : m) {
+			t = sub(charset, e.first);
+			if (t != invalidDifference) {
+				auto v = getAllPairs(t, e.first);
+				if (!v.empty()) {
+					sout += getUserString(e.first) + " ";
+					printAllPairs(v, v.size() != 1);
+				}
+			}
+		}
+	}
+
+#ifdef REMOTE
+	s = encode(sout, true);
+	std::cout << s;
+#else
+	std::ifstream fc("c:/slovesno/" + lng + ".txt");
+	std::stringstream buffer;
+	buffer << fc.rdbuf();
+	if (sout != buffer.str()) {
+		std::cerr << lng + " files are different";
+	}
+	std::ofstream f(lng + ".txt");
+	f << sout;
+	std::cout << "end " + lng + " time="
+			<< float(clock() - begin) / CLOCKS_PER_SEC << " outlen="
+			<< sout.length();
+#endif
 }
