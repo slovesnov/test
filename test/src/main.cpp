@@ -1,4 +1,3 @@
-//#include "aslov.h"
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -183,7 +182,9 @@ int main(int argc, char *argv[]) {
 	lng = isalpha(s[0]) ? "en" : "ru";
 	const size_t size = s.length();
 	eqmap.resize(size);
+#ifndef REMOTE
 	size_t sz[size];
+#endif
 
 	std::ifstream infile(
 #ifdef REMOTE
@@ -211,6 +212,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+#ifndef REMOTE
 	sz[0] = j = 0;
 	s = "";
 	for (i = 1; i < size; i++) {
@@ -226,7 +228,6 @@ int main(int argc, char *argv[]) {
 					+ std::to_string(sz[i]) + ')';
 		}
 	}
-#ifndef REMOTE
 	sout += "words:" + std::to_string(j) + '(' + std::to_string(sz[0]) + ')' + s
 			+ '\n';
 #endif
