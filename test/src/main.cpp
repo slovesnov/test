@@ -4,7 +4,18 @@
 #include <fstream>
 #include <iostream>
 
-#ifdef REMOTE
+/*
+ *  for local
+ *  -DPATH='"C:/Users/user/git/words"'
+ *  or #define PATH "C:/Users/user/git/words"
+ *  for remote
+ *  -DPATH='"../htdocs"'
+ *  or #define PATH "../htdocs"
+ *
+ *  #define cgi if need local or remote
+*/
+
+#ifdef CGI
 #include <iconv.h>
 #include <cstring>
 #else
@@ -109,7 +120,7 @@ void printAllPairs(std::vector<std::pair<std::string, std::string>> const &v,
 	sout += "\n";
 }
 
-#ifdef REMOTE
+#ifdef CGI
 std::string encode(const std::string &s, bool toUtf8) {
 	std::string r;
 	const char UTF8[] = "UTF-8";
@@ -145,7 +156,7 @@ int main(int argc, char *argv[]) {
 	std::string s, s1, t, lng;
 	size_t i, j;
 
-#ifdef REMOTE
+#ifdef CGI
 	printf("Content-type: text/html\n\n");
 	std::getline(std::cin, t);
 	const char *p = t.c_str() + 2; //t="s=word" so +2
@@ -182,17 +193,10 @@ int main(int argc, char *argv[]) {
 	lng = isalpha(s[0]) ? "en" : "ru";
 	const size_t size = s.length();
 	eqmap.resize(size);
-#ifndef REMOTE
+#ifndef CGI
 	size_t sz[size];
 #endif
-
-	std::ifstream infile(
-#ifdef REMOTE
-			"../htdocs"
-#else
-			"C:/Users/user/git/words"
-#endif
-							"/words/words/" + lng + "/words.txt");
+	std::ifstream infile(std::string(PATH)+"/words/words/" + lng + "/words.txt");
 	auto charset = getOrderedString(s);
 
 	while (std::getline(infile, s)) {
@@ -212,7 +216,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-#ifndef REMOTE
+#ifndef CGI
 	sz[0] = j = 0;
 	s = "";
 	for (i = 1; i < size; i++) {
@@ -254,7 +258,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-#ifdef REMOTE
+#ifdef CGI
 	s = encode(sout, true);
 	std::cout << s;
 #else
