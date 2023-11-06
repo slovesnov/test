@@ -1,277 +1,360 @@
-#include <vector>
-#include <map>
-#include <algorithm>
-#include <fstream>
 #include <iostream>
+#include <set>
+#include <cmath>
+#include <filesystem>
+#include <regex>
+#include <sys/stat.h>
+#include "aslov.h"
+#include "Permutations.h"
 
-/*
- *  for local
- *  -DPATH='"C:/Users/user/git/words"'
- *  or #define PATH "C:/Users/user/git/words"
- *  for remote
- *  -DPATH='"../htdocs"'
- *  or #define PATH "../htdocs"
- *
- *  #define cgi if need local or remote
-*/
+using uchar = unsigned char;
+#define STR(n) toString(n,'.')
+#define OUT_START(s) std::cout <<LNG<<" "<<__func__<<" "<<s<<"\n"<< std::flush;
 
-#ifdef CGI
-#include <iconv.h>
-#include <cstring>
-#else
-//for files compare
-#include <sstream>
+struct WM {
+	std::string word;
+	uint32_t mask;
+};
+
+//user predefined constants
+const bool EN = 1;
+/* 1, 2, 3 step1, 2|2p, 3
+ * 4 - checkSameMaskLength()
+ * 5 - check5() recursive search (letters can repeat) use MAX_WORDS.
+ * 6 - check6() recursive search all letters are different use MAX_WORDS.{
+ * EN MAX_WORDS<5 not found. MAX_WORDS=5 found
+ * RU MAX_WORDS<5 not found. MAX_WORDS=5 found
+ * check for MAX_WORDS=5,6
+ * }
+ */
+const int OPTION = 4;
+const int MAX_WORDS = 6;//for OPTION=5|6
+const int STEP3_MAXL = EN ? 29 : 35;//for OPTION=3
+const int MAX_SUM_LENGTH = MAX_WORDS <= 3 ? INT_MAX : (EN ? 34 : 42);//for OPTION=5
+const bool CUT_ON_START = 0;//for OPTION=5
+
+//for OPTION=5 need when cann't cover all alphabet for MAX_WORDS=2 || MAX_WORDS=3 && EN
+//#define USE_MIN_LETTERS
+
+#ifdef USE_MIN_LETTERS
+const int MIN_LETTERS = EN ? (MAX_WORDS==2?21:25) : 27;
 #endif
 
-const std::string invalidDifference = "$";
-std::vector<std::map<std::string, std::vector<std::string>>> eqmap;
-std::string sout;
+//ifdef MOST_POPULAR works slower
+//#define MOST_POPULAR
 
-//subtract ordered strings
-std::string sub(std::string const &minuend, std::string const &subtrahend) {
-	if (minuend.length() < subtrahend.length()) {
-		return invalidDifference;
-	}
-	if (minuend.length() == subtrahend.length()) {
-		return minuend == subtrahend ? "" : invalidDifference;
-	}
+/*
+ * MAX_WORDS=2 EN=1
+	demographiques intersubjectively bits=21 fkwxz suml=31
+	if check all patterns848 chars21 time0.3
 
-	std::string difference;
-	auto p1 = minuend.c_str();
-	auto p = subtrahend.c_str();
-	for (; *p1; p1++) {
-		if (*p1 == *p) {
-			p++;
-			if (!*p) {
-				return difference + (p1 + 1);
+ * MAX_WORDS=2 EN=0
+	вертикально-подъемный южуралэнергостроймеханизация bits=27 бфчшщ suml=49
+	подъелдыкивать южуралэнергостроймеханизация bits=27 бфчшщ suml=42
+	if check all patterns4 chars28 time4.2
+
+ * MAX_WORDS=3 EN=1 bits=25
+ 	 many patterns
+
+ * MAX_WORDS=3 EN=0 all letters
+ 	 many patterns
+ *
+ */
+
+const int LETTERS = EN ? 26 : 32;
+const uint32_t END_MASK = ((1ull << LETTERS) - 1);
+const uchar FIRST_CHAR = EN ? 'a' : 'а';
+const std::string LNG = EN ? "en" : "ru";
+
+std::vector<WM> letters[LETTERS];
+std::string allwords[MAX_WORDS];
+std::map<uint32_t,std::string> allmap;
+clock_t begin;
+int first_index;
+std::ofstream filecheck;
+int gfound=0;
+
+#include "pangrams.h"
+
+void check5(int level, uint32_t mask, uint32_t leftlen) {
+	int i, j = 0, min = INT_MAX;
+	if(level==-1){
+		j=first_index;
+	}
+	else{
+		for (i = 0; i < LETTERS; i++) {
+			if (!((mask >> i) & 1)) {
+				if (min > int(letters[i].size())) {
+					min = int(letters[i].size());
+					j = i;
+				}
 			}
-		} else if (*p1 < *p) {
-			difference += *p1;
-		} else {
-			return invalidDifference;
 		}
 	}
-	return invalidDifference;
-}
+	level++;
+	auto& l=letters[j];
+	for (auto &e : l) {
+		if (e.word.length() <= leftlen) {
+			uint32_t m = mask | e.mask;
+#ifdef USE_MIN_LETTERS
+			int bits = 0;
+#endif
+			std::string s;
+			allwords[level] = e.word;
+			if (m == END_MASK
+#ifdef USE_MIN_LETTERS
+					|| (bits = __builtin_popcount(m)) >= MIN_LETTERS
+#endif
+							) {
+				for (i = j = 0; i <= level; i++) {
+					j += allwords[i].length();
+					s += allwords[i] + " ";
+				}
+				if (j <= MAX_SUM_LENGTH) {
+#ifdef USE_MIN_LETTERS
+					if (bits) {
+						s += "bits=" + std::to_string(bits) + " ";
+						for (i = 0; i < LETTERS; i++) {
+							if (!((m >> i) & 1)) {
+								s += char(FIRST_CHAR + i);
+							}
+						}
+						s += ' ';
+					}
+#endif
+					s += "suml=" + std::to_string(j) + "\n";
+					filecheck << s;
+					std::cout << s << std::flush;
+					gfound++;
+				}
+				continue;
+			}
 
-std::string getOrderedString(std::string const &s) {
-	auto o = s;
-	std::sort(o.begin(), o.end());
-	return o;
-}
-
-//get list of dictionary words from ordered string
-std::string getUserString(std::string const &s) {
-	auto &a = eqmap[s.length()].find(s)->second;
-	bool f = true;
-	std::string o;
-	for (auto &e : a) {
-		if (!f) {
-			o += ' ';
+			if (level == MAX_WORDS - 1) {
+				continue;
+			}
+			check5(level, m, leftlen-e.word.length());
+			if (level == 0) {
+				static int g = 0;
+				g++;
+				if ((MAX_WORDS==3 && g % 100 == 0) || MAX_WORDS>3) {
+					std::cout<< e.word<<" ";
+					outTimeInfo(g, letters[first_index].size());
+				}
+			}
 		}
-		o += e;
-		f = false;
 	}
-	if (a.size() != 1) {
-		o = '{' + o + '}';
-	}
-	return o;
 }
 
-//get list of dictionary words from ordered string
-std::vector<std::pair<std::string, std::string>> getAllPairs(
-		std::string const &s, std::string const &low = invalidDifference) {
-	std::vector<std::pair<std::string, std::string>> v;
-	for (size_t i = 1; i < s.size(); i++) {
-		for (auto &e : eqmap[i]) {
-			if (low == invalidDifference || low <= e.first) {
-				auto a = sub(s, e.first);
-				if (a != invalidDifference && e.first <= a) {
-					auto &m = eqmap[a.length()];
-					if (m.find(a) != m.end()) {
-						v.push_back(
-								{ getUserString(e.first), getUserString(a) });
+void check6(int level,uint32_t mask) {
+	int i;
+	if (level == MAX_WORDS - 2) {
+		mask = ~mask;
+		if (EN) {
+			mask &= END_MASK;
+		}
+		auto it = allmap.find(mask);
+		if (it != allmap.end()) {
+			std::string s;
+			gfound++;
+			for (i = 0; i <= level; i++) {
+				s += allwords[i] + " ";
+			}
+			s += it->second + "\n";
+			filecheck << s;
+			std::cout << s << std::flush;
+		}
+	}
+	else{
+		int j = 0, min = INT_MAX;
+		if(level==-1){
+			j=first_index;
+		}
+		else{
+			for (i = 0; i < LETTERS; i++) {
+				if (!((mask >> i) & 1)) {
+					if (min > int(letters[i].size())) {
+						min = int(letters[i].size());
+						j = i;
 					}
 				}
 			}
 		}
-	}
-	return v;
-}
 
-//output all pairs to string
-void printAllPairs(std::vector<std::pair<std::string, std::string>> const &v,
-		bool p = 0) {
-	bool first = true;
-	if (p) {
-		sout += "[";
-	}
-	for (auto &e : v) {
-		if (first) {
-			first = false;
-		} else {
-			sout += p ? ", " : "\n";
+		level++;
+		if (level == MAX_WORDS - 1) {
+			return;
 		}
-		sout += e.first + " " + e.second;
-	}
-	if (p) {
-		sout += "]";
-	}
-	sout += "\n";
-}
-
-#ifdef CGI
-std::string encode(const std::string &s, bool toUtf8) {
-	std::string r;
-	const char UTF8[] = "UTF-8";
-	const char CP1251[] = "cp1251";
-	iconv_t cd = toUtf8 ? iconv_open(UTF8, CP1251) : iconv_open(CP1251, UTF8);
-	if ((iconv_t) -1 == cd) {
-		printf("error %d", __LINE__);
-		perror("iconv_open");
-		return r;
-	}
-
-	size_t inbytesleft = s.length();
-	char *in = new char[inbytesleft];
-	strncpy(in, s.c_str(), inbytesleft);
-	size_t outbytesleft = inbytesleft * 2 + 1;
-	char *out = new char[outbytesleft];
-	char *outbuf = out;
-	size_t ret = iconv(cd, &in, &inbytesleft, &outbuf, &outbytesleft);
-	if ((size_t) -1 == ret) {
-		printf("error %d", __LINE__);
-		perror("iconv");
-		return r;
-	}
-	*outbuf = 0;
-	r = out;
-	delete[] out;
-	iconv_close(cd);
-	return r;
-}
-#endif
-
-int main(int argc, char *argv[]) {
-	std::string s, s1, t, lng;
-	size_t i, j;
-
-#ifdef CGI
-	printf("Content-type: text/html\n\n");
-	std::getline(std::cin, t);
-	const char *p = t.c_str() + 2; //t="s=word" so +2
-	s = "";
-	while (*p != 0) {
-		if (*p == '%') {
-			p++;
-			//can be "%7B1%2C which means "{1," so cann't use strtol directly
-			s1.assign(p, 2);
-			s += stoi(s1, nullptr, 16);
-			p += 2;
-		} else {
-			s += *p++;
+		for (auto &e : letters[j]) {
+			if ((mask & e.mask) == 0) {
+				allwords[level] = e.word;
+//				if(level==0){
+//					static int g = 0;
+//					if(g++%(EN?70:20)==0){
+//						std::cout<< e.word<<" ";
+//						outTimeInfo(g, letters[first_index].size());
+//					}
+//				}
+				check6(level, mask| e.mask);
+			}
 		}
 	}
-	//sout = "6";
-	s = encode(s, false);
+}
 
-#else
-	clock_t begin = clock();
-	if (argc == 1) {
-		const int en = 0;
-		const std::string chars2[] = { "авекмнорстух", "abekmhopctyx" };
-		//const std::string chars2[] = { "москвамосква", "abekmhopctyx" };
-		s = chars2[en];
-	} else {
-		s = argv[1]; //s - cp1251
-		if (s.length() == 0) {
-			std::cout << "error empty string";
-			return 1;
-		}
+
+int main() {
+	int i;
+	std::string s;
+	uchar u;
+	uint32_t mask;
+	std::set<char> sc;
+	std::map<uint32_t, std::string> lettersMap[LETTERS];
+
+	preventThreadSleep();
+	begin = clock();
+	if (OPTION == 1) {
+		step1();
+		return 0;
 	}
-#endif
-	lng = isalpha(s[0]) ? "en" : "ru";
-	const size_t size = s.length();
-	eqmap.resize(size);
-#ifndef CGI
-	size_t sz[size];
-#endif
-	std::ifstream infile(std::string(PATH)+"/words/words/" + lng + "/words.txt");
-	auto charset = getOrderedString(s);
+	if (OPTION == 2) {
+		step2p();
+		//step2();
+		return 0;
+	}
+	if (OPTION == 3) {
+		step3();
+		return 0;
+	}
+	if (OPTION == 4) {
+		checkSameMaskLength();
+		return 0;
+	}
 
+	s = LNG + format(" max_words=%d max_sum_length=%d cut_on_start=%d option=%d", MAX_WORDS,
+			MAX_SUM_LENGTH, int(CUT_ON_START),OPTION);
+#ifdef USE_MIN_LETTERS
+	s += format(" min_chars=%d", MIN_LETTERS);
+#endif
+	s += "\n";
+	std::cout << s << std::flush;
+
+#ifdef MOST_POPULAR
+	int most_popular = EN?4:14;//en-e ru-о
+#endif
+
+	std::ifstream infile(getDicionaryFileName());
 	while (std::getline(infile, s)) {
-		j = s.length();
-		if (j < size) {
-			s1 = getOrderedString(s);
-			auto &m = eqmap[j];
-			auto it = m.find(s1);
+		mask = 0;
+		sc.clear();
+		for (char c : s) {
+			u = uchar(c);
+			if (u != '-') {
+				sc.insert(c);
+				mask |= 1 << (u - FIRST_CHAR);
+			}
+		}
+
+		if (OPTION == 6) {
+			if (__builtin_popcount(mask) != int(s.length())) {
+				continue;
+			}
+			allmap.insert( { mask, s });
+		}
+
+#ifdef MOST_POPULAR
+		if( mask & (1<<most_popular)){
+			u = uchar(FIRST_CHAR+most_popular);
+			auto &m = lettersMap[u - FIRST_CHAR];
+			auto const &it = m.find(mask);
 			if (it == m.end()) {
-				t = sub(charset, s1);
-				if (t != invalidDifference) {
-					m.insert( { s1, { s } });
-				}
+				m[mask] = s;
 			} else {
-				it->second.push_back(s);
-			}
-		}
-	}
-
-#ifndef CGI
-	sz[0] = j = 0;
-	s = "";
-	for (i = 1; i < size; i++) {
-		sz[i] = 0;
-		auto &m = eqmap[i];
-		if (!m.empty()) {
-			for (auto &a : m) {
-				sz[i] += a.second.size();
-				sz[0] += a.second.size();
-			}
-			j += m.size();
-			s += ' ' + std::to_string(i) + ':' + std::to_string(m.size()) + '('
-					+ std::to_string(sz[i]) + ')';
-		}
-	}
-	sout += "words:" + std::to_string(j) + '(' + std::to_string(sz[0]) + ')' + s
-			+ '\n';
-#endif
-
-	auto v = getAllPairs(charset);
-	if (v.empty()) {
-		sout += "no two items found\n";
-	} else {
-		printAllPairs(v);
-	}
-
-	sout += "----------------\n";
-	for (i = 1; i < size; i++) {
-		auto &m = eqmap[i];
-		for (auto &e : m) {
-			t = sub(charset, e.first);
-			if (t != invalidDifference) {
-				auto v = getAllPairs(t, e.first);
-				if (!v.empty()) {
-					sout += getUserString(e.first) + " ";
-					printAllPairs(v, v.size() != 1);
+				if (it->second.length() > s.length()) {
+					it->second = s;
 				}
 			}
+
+		}
+		else{
+#endif
+			for (char c : sc) {
+				u = uchar(c);
+				auto &m = lettersMap[u - FIRST_CHAR];
+				auto const &it = m.find(mask);
+				if (it == m.end()) {
+					m[mask] = s;
+				} else {
+					if (it->second.length() > s.length()) {
+						it->second = s;
+					}
+				}
+			}
+#ifdef MOST_POPULAR
+		}
+#endif
+	}
+
+	i = 0;
+	for (auto &m : lettersMap) {
+		auto &l = letters[i];
+		for (auto &e : m) {
+			l.push_back( { e.second, e.first });
+		}
+		//sort for alphabet output
+		std::sort(l.begin(), l.end(), [](auto &a, auto &b) {
+			return a.word < b.word;
+		});
+		i++;
+	}
+
+#ifdef MOST_POPULAR
+	first_index = most_popular;
+#else
+auto it = std::min_element(std::begin(letters), std::end(letters),
+		[](auto &a, auto &b) {
+			return a.size() < b.size();
+		});
+first_index = std::distance(std::begin(letters), it);
+#endif
+	if (CUT_ON_START && OPTION==5) {
+		std::vector<WM> v;
+		VString vs;
+		if (EN) {
+			vs = { "consequently", "democratique" };
+		} else {
+			vs = {
+					"аэрофотосъемочный",
+//					"карчеподъемный",
+//					"конъюнктурщик",
+//					"аэрофотосъемка"
+			};
+		}
+		for (auto &m : letters[first_index]) {
+			if (oneOf(m.word, vs)) {
+				v.push_back(m);
+			}
+		}
+		letters[first_index] = v;
+		if (v.size()!=vs.size()) {
+			printel("some words not found")
+#ifdef MOST_POPULAR
+printel("CUT_ON_START not working with MOST_POPULAR")
+#endif
+			exit(1);
 		}
 	}
 
-#ifdef CGI
-	s = encode(sout, true);
-	std::cout << s;
-#else
-	std::ifstream fc("c:/slovesno/" + lng + ".txt");
-	std::stringstream buffer;
-	buffer << fc.rdbuf();
-	if (sout != buffer.str()) {
-		std::cerr << lng + " files are different";
+	filecheck.open(LNG + ".txt");
+	if (OPTION == 5 ) {
+		check5(-1, 0, MAX_SUM_LENGTH);
 	}
-	std::ofstream f(lng + ".txt");
-	f << sout;
-	std::cout << "end " + lng + " time="
-			<< float(clock() - begin) / CLOCKS_PER_SEC << " outlen="
-			<< sout.length();
-#endif
+	else{
+		check6(-1, 0);
+	}
+	filecheck.close();
+	std::cout<<"===== found "<<STR(gfound)<<"=====\n";
+	checkSameMaskLength();
+
+	std::cout << "end time " << secondsToString(begin) << std::flush;
 }
+
