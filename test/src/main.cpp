@@ -110,7 +110,7 @@ void check5(int level, uint32_t mask, uint32_t leftlen) {
 					j += allwords[i].length();
 					s += allwords[i] + " ";
 				}
-				if (j <= MAX_SUM_LENGTH) {
+				if (j <= MAX_SUM_LENGTH ) {
 #ifdef USE_MIN_LETTERS
 					if (bits) {
 						s += "bits=" + std::to_string(bits) + " ";
@@ -211,6 +211,7 @@ int main() {
 	std::map<uint32_t, std::string> lettersMap[LETTERS];
 
 	preventThreadSleep();
+
 	begin = clock();
 	if (OPTION == 1) {
 		step1();
